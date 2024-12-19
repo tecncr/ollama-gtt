@@ -5,14 +5,17 @@ package llama
 /*
 #cgo CFLAGS: -std=c11
 #cgo CXXFLAGS: -std=c++11
+#cgo CPPFLAGS: -I${SRCDIR}/llama.cpp/include
+#cgo CPPFLAGS: -I${SRCDIR}/llama.cpp/common
+#cgo CPPFLAGS: -I${SRCDIR}/llama.cpp/examples/llava
 #cgo CPPFLAGS: -I${SRCDIR}/../ml/backend/ggml/ggml/include
-#cgo darwin,arm64 CPPFLAGS: -DGGML_USE_METAL
 
 #include <stdlib.h>
+#include "ggml.h"
 #include "llama.h"
 #include "clip.h"
-#include "ggml.h"
 #include "llava.h"
+
 #include "mllama.h"
 #include "sampling_ext.h"
 
@@ -40,6 +43,8 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
+	"os"
+	"path/filepath"
 	"runtime"
 	"runtime/cgo"
 	"slices"
@@ -47,10 +52,52 @@ import (
 	"sync/atomic"
 	"unsafe"
 
-	_ "github.com/ollama/ollama/ml/backend/ggml/ggml/src"
+	_ "github.com/ollama/ollama/llama/llama.cpp/common"
+	_ "github.com/ollama/ollama/llama/llama.cpp/examples/llava"
+	_ "github.com/ollama/ollama/llama/llama.cpp/src"
 )
 
 func BackendInit() {
+	var lib struct{ name, pattern, defaultValue string }
+	if runtime.GOOS == "windows" {
+		lib.name = "PATH"
+		lib.pattern = "ggml-*.dll"
+		lib.defaultValue = "."
+	} else if runtime.GOOS == "linux" {
+		lib.name = "LD_LIBRARY_PATH"
+		lib.pattern = "libggml-*.so"
+		lib.defaultValue = "/usr/local/lib:/usr/lib"
+	}
+
+	if lib.name != "" {
+		paths, ok := os.LookupEnv(lib.name)
+		if !ok {
+			paths = lib.defaultValue
+		}
+
+		for _, path := range filepath.SplitList(paths) {
+			matches, err := filepath.Glob(filepath.Join(path, lib.pattern))
+			if err != nil {
+				slog.Error("failed to glob", "path", path, "error", err)
+				continue
+			}
+
+			for _, match := range matches {
+				if base := filepath.Base(match); strings.HasPrefix(base, "ggml-base") ||
+					strings.HasPrefix(base, "libggml-base") {
+					continue
+				}
+
+				func() {
+					cmatch := C.CString(match)
+					defer C.free(unsafe.Pointer(cmatch))
+
+					C.ggml_backend_load(cmatch)
+				}()
+			}
+		}
+	}
+
 	C.llama_backend_init()
 }
 
