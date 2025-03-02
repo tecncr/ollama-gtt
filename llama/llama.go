@@ -1,70 +1,21 @@
 package llama
 
-//go:generate make -j 8
-
 /*
-#cgo CFLAGS: -O3 -std=c17 -DGGML_BUILD=1 -DNDEBUG -DLOG_DISABLE_LOGS -DGGML_USE_LLAMAFILE -DGGML_USE_CPU -DGGML_USE_CPU_AARCH64
-#cgo CXXFLAGS: -O3 -std=c++17 -DGGML_BUILD=1 -DNDEBUG -DLOG_DISABLE_LOGS -DGGML_USE_LLAMAFILE -DGGML_USE_CPU -DGGML_USE_CPU_AARCH64
-#cgo amd64,avx CFLAGS: -mavx
-#cgo amd64,avx CXXFLAGS: -mavx
-#cgo amd64,avx2 CFLAGS: -mavx2 -mfma -mf16c
-#cgo amd64,avx2 CXXFLAGS: -mavx2 -mfma -mf16c
-#cgo amd64,avx512 CFLAGS: -mavx512f -mavx512dq -mavx512bw
-#cgo amd64,avx512 CXXFLAGS: -mavx512f -mavx512dq -mavx512bw
-#cgo amd64,avx512bf16 CFLAGS: -mavx512bf16 -D__AVX512BF16__
-#cgo amd64,avx512bf16 CXXFLAGS: -mavx512bf16 -D__AVX512BF16__
-#cgo amd64,avx512vbmi CFLAGS: -mavx512vbmi -D__AVX512VBMI__
-#cgo amd64,avx512vbmi CXXFLAGS: -mavx512vbmi -D__AVX512VBMI__
-#cgo amd64,avx512vnni CFLAGS: -mavx512vnni -D__AVX512VNNI__
-#cgo amd64,avx512vnni CXXFLAGS: -mavx512vnni -D__AVX512VNNI__
-#cgo amd64,f16c CFLAGS: -mf16c
-#cgo amd64,f16c CXXFLAGS: -mf16c
-#cgo amd64,fma CFLAGS: -mfma
-#cgo amd64,fma CXXFLAGS: -mfma
-#cgo cuda CFLAGS: -fPIE -DGGML_USE_CUDA -DGGML_CUDA_DMMV_X=32 -DGGML_CUDA_PEER_MAX_BATCH_SIZE=128 -DGGML_CUDA_MMV_Y=1 -DGGML_BUILD=1
-#cgo cuda CXXFLAGS: -DGGML_USE_CUDA -DGGML_CUDA_DMMV_X=32 -DGGML_CUDA_PEER_MAX_BATCH_SIZE=128 -DGGML_CUDA_MMV_Y=1 -DGGML_BUILD=1
-#cgo cuda_jetpack5 LDFLAGS: -lggml_cuda_jetpack5
-#cgo cuda_jetpack6 LDFLAGS: -lggml_cuda_jetpack6
-#cgo cuda_v11 LDFLAGS: -lggml_cuda_v11
-#cgo cuda_v12 LDFLAGS: -lggml_cuda_v12
-#cgo darwin,amd64 CFLAGS: -Wno-incompatible-pointer-types-discards-qualifiers
-#cgo darwin,amd64 CXXFLAGS: -Wno-incompatible-pointer-types-discards-qualifiers
-#cgo darwin,amd64 LDFLAGS: -framework Foundation
-#cgo darwin,amd64,avx2 CFLAGS: -DGGML_USE_ACCELERATE -DACCELERATE_NEW_LAPACK -DACCELERATE_LAPACK_ILP64
-#cgo darwin,amd64,avx2 CXXFLAGS: -DGGML_USE_ACCELERATE -DACCELERATE_NEW_LAPACK -DACCELERATE_LAPACK_ILP64
-#cgo darwin,amd64,avx2 LDFLAGS: -framework Accelerate
-#cgo darwin,arm64 CFLAGS: -DGGML_USE_METAL -DGGML_USE_ACCELERATE -DGGML_METAL_EMBED_LIBRARY -DACCELERATE_NEW_LAPACK -DACCELERATE_LAPACK_ILP64 -DGGML_USE_BLAS -DGGML_BLAS_USE_ACCELERATE
-#cgo darwin,arm64 CXXFLAGS: -DGGML_USE_METAL -DGGML_USE_ACCELERATE -DGGML_METAL_EMBED_LIBRARY -DACCELERATE_NEW_LAPACK -DACCELERATE_LAPACK_ILP64 -DGGML_USE_BLAS -DGGML_BLAS_USE_ACCELERATE
-#cgo darwin,arm64 LDFLAGS: -framework Foundation -framework Metal -framework MetalKit -framework Accelerate
-#cgo linux CFLAGS: -D_GNU_SOURCE
-#cgo linux CXXFLAGS: -D_GNU_SOURCE
-#cgo linux LDFLAGS: -ldl
-#cgo linux,amd64 LDFLAGS: -L${SRCDIR}/build/linux-amd64
-#cgo linux,arm64 CFLAGS: -D__aarch64__ -D__ARM_NEON -D__ARM_FEATURE_FMA
-#cgo linux,arm64 CXXFLAGS: -D__aarch64__ -D__ARM_NEON -D__ARM_FEATURE_FMA
-#cgo linux,arm64 LDFLAGS: -L${SRCDIR}/build/linux-arm64
-#cgo linux,arm64,sve CFLAGS: -march=armv8.6-a+sve
-#cgo linux,arm64,sve CXXFLAGS: -march=armv8.6-a+sve
-#cgo linux,cuda LDFLAGS: -lcuda -lcudart -lcublas -lcublasLt -lpthread -lrt -lresolv
-#cgo linux,rocm LDFLAGS: -lpthread -lrt -lresolv
-#cgo rocm CFLAGS: -DGGML_USE_CUDA -DGGML_USE_HIP -DGGML_CUDA_DMMV_X=32 -DGGML_CUDA_PEER_MAX_BATCH_SIZE=128 -DGGML_CUDA_MMV_Y=1 -DGGML_BUILD=1
-#cgo rocm CXXFLAGS: -DGGML_USE_CUDA -DGGML_USE_HIP -DGGML_CUDA_DMMV_X=32 -DGGML_CUDA_PEER_MAX_BATCH_SIZE=128 -DGGML_CUDA_MMV_Y=1 -DGGML_BUILD=1
-#cgo rocm LDFLAGS: -L${SRCDIR} -lggml_rocm -lhipblas -lamdhip64 -lrocblas
-#cgo windows CFLAGS: -Wno-discarded-qualifiers -D_WIN32_WINNT=0x602
-#cgo windows CXXFLAGS: -D_WIN32_WINNT=0x602
-#cgo windows LDFLAGS: -lmsvcrt -static-libstdc++ -static-libgcc -static
-#cgo windows,amd64 LDFLAGS: -L${SRCDIR}/build/windows-amd64
-#cgo windows,arm64 CFLAGS: -D__aarch64__ -D__ARM_NEON -D__ARM_FEATURE_FMA
-#cgo windows,arm64 CXXFLAGS: -D__aarch64__ -D__ARM_NEON -D__ARM_FEATURE_FMA
-#cgo windows,arm64 LDFLAGS: -L${SRCDIR}/build/windows-arm64
-#cgo windows,cuda LDFLAGS: -lcuda -lcudart -lcublas -lcublasLt
-#cgo windows,rocm LDFLAGS: -lggml_rocm -lhipblas -lamdhip64 -lrocblas
+#cgo CFLAGS: -std=c11
+#cgo CXXFLAGS: -std=c++17
+#cgo CPPFLAGS: -I${SRCDIR}/llama.cpp/include
+#cgo CPPFLAGS: -I${SRCDIR}/llama.cpp/common
+#cgo CPPFLAGS: -I${SRCDIR}/llama.cpp/examples/llava
+#cgo CPPFLAGS: -I${SRCDIR}/llama.cpp/src
+#cgo CPPFLAGS: -I${SRCDIR}/../ml/backend/ggml/ggml/include
 
 #include <stdlib.h>
+#include "ggml.h"
 #include "llama.h"
 #include "clip.h"
-#include "ggml.h"
 #include "llava.h"
+#include "gguf.h"
+
 #include "mllama.h"
 #include "sampling_ext.h"
 
@@ -86,19 +37,38 @@ COMPILER inline get_compiler() {
 import "C"
 
 import (
+	"context"
 	_ "embed"
 	"errors"
 	"fmt"
+	"log/slog"
 	"os"
 	"runtime"
 	"runtime/cgo"
 	"slices"
 	"strings"
-	"sync/atomic"
 	"unsafe"
+
+	_ "github.com/ollama/ollama/llama/llama.cpp/common"
+	_ "github.com/ollama/ollama/llama/llama.cpp/examples/llava"
+	_ "github.com/ollama/ollama/llama/llama.cpp/src"
+	ggml "github.com/ollama/ollama/ml/backend/ggml/ggml/src"
 )
 
+func init() {
+	C.llama_log_set(C.ggml_log_callback(C.llamaLog), nil)
+}
+
+//export llamaLog
+func llamaLog(level C.int, text *C.char, _ unsafe.Pointer) {
+	// slog levels zeros INFO and are multiples of 4
+	if slog.Default().Enabled(context.TODO(), slog.Level(int(level-C.GGML_LOG_LEVEL_INFO)*4)) {
+		fmt.Fprint(os.Stderr, C.GoString(text))
+	}
+}
+
 func BackendInit() {
+	ggml.OnceLoad()
 	C.llama_backend_init()
 }
 
@@ -113,26 +83,6 @@ func PrintSystemInfo() string {
 		compiler = "cgo(clang)"
 	}
 	return C.GoString(C.llama_print_system_info()) + compiler
-}
-
-var logLevel atomic.Int32
-
-func init() {
-	logLevel.Store(int32(C.GGML_LOG_LEVEL_INFO))
-	C.llama_log_set((C.ggml_log_callback)(C.llamaLog), nil)
-}
-
-func EnableDebug() {
-	logLevel.Store(int32(C.GGML_LOG_LEVEL_DEBUG))
-}
-
-//export llamaLog
-func llamaLog(level int32, text *C.char, _ unsafe.Pointer) {
-	if level < logLevel.Load() {
-		return
-	}
-
-	fmt.Fprint(os.Stderr, C.GoString(text))
 }
 
 func GetModelArch(modelPath string) (string, error) {
@@ -243,21 +193,25 @@ func (c *Context) KvCacheDefrag() {
 
 // Get the embeddings for a sequence id
 func (c *Context) GetEmbeddingsSeq(seqId int) []float32 {
-	embeddings := unsafe.Pointer(C.llama_get_embeddings_seq(c.c, C.int(seqId)))
-	if embeddings == nil {
+	e := unsafe.Pointer(C.llama_get_embeddings_seq(c.c, C.int(seqId)))
+	if e == nil {
 		return nil
 	}
 
-	return unsafe.Slice((*float32)(embeddings), c.Model().NEmbd())
+	embeddings := make([]float32, c.Model().NEmbd())
+	_ = copy(embeddings, unsafe.Slice((*float32)(e), c.Model().NEmbd()))
+	return embeddings
 }
 
 func (c *Context) GetEmbeddingsIth(i int) []float32 {
-	embeddings := unsafe.Pointer(C.llama_get_embeddings_ith(c.c, C.int32_t(i)))
-	if embeddings == nil {
+	e := unsafe.Pointer(C.llama_get_embeddings_ith(c.c, C.int32_t(i)))
+	if e == nil {
 		return nil
 	}
 
-	return unsafe.Slice((*float32)(embeddings), c.Model().NEmbd())
+	embeddings := make([]float32, c.Model().NEmbd())
+	_ = copy(embeddings, unsafe.Slice((*float32)(e), c.Model().NEmbd()))
+	return embeddings
 }
 
 type ModelParams struct {
@@ -308,7 +262,7 @@ func LoadModelFromFile(modelPath string, params ModelParams) (*Model, error) {
 		cparams.progress_callback_user_data = unsafe.Pointer(&handle)
 	}
 
-	m := Model{c: C.llama_load_model_from_file(C.CString(modelPath), cparams)}
+	m := Model{c: C.llama_model_load_from_file(C.CString(modelPath), cparams)}
 	if m.c == nil {
 		return nil, fmt.Errorf("unable to load model: %s", modelPath)
 	}
@@ -317,12 +271,12 @@ func LoadModelFromFile(modelPath string, params ModelParams) (*Model, error) {
 }
 
 func FreeModel(model *Model) {
-	C.llama_free_model(model.c)
+	C.llama_model_free(model.c)
 }
 
 func NewContextWithModel(model *Model, params ContextParams) (*Context, error) {
 	c := Context{
-		c:          C.llama_new_context_with_model(model.c, params.c),
+		c:          C.llama_init_from_model(model.c, params.c),
 		numThreads: int(params.c.n_threads),
 	}
 	if c.c == nil {
@@ -333,35 +287,39 @@ func NewContextWithModel(model *Model, params ContextParams) (*Context, error) {
 }
 
 func (m *Model) NumVocab() int {
-	return int(C.llama_n_vocab(m.c))
+	return int(C.llama_vocab_n_tokens(m.Vocab()))
 }
 
 func (m *Model) TokenIsEog(token int) bool {
-	return bool(C.llama_token_is_eog(m.c, C.llama_token(token)))
+	return bool(C.llama_vocab_is_eog(m.Vocab(), C.llama_token(token)))
 }
 
 func (m *Model) AddBOSToken() bool {
-	return bool(C.llama_add_bos_token(m.c))
+	return bool(C.llama_vocab_get_add_bos(m.Vocab()))
 }
 
 func (m *Model) ApplyLoraFromFile(context *Context, loraPath string, scale float32, threads int) error {
 	cLoraPath := C.CString(loraPath)
 	defer C.free(unsafe.Pointer(cLoraPath))
 
-	loraAdapter := C.llama_lora_adapter_init(m.c, cLoraPath)
+	loraAdapter := C.llama_adapter_lora_init(m.c, cLoraPath)
 	if loraAdapter == nil {
 		return errors.New("unable to load lora")
 	}
 
 	err := -1
 	if loraAdapter != nil {
-		err = int(C.llama_lora_adapter_set(context.c, loraAdapter, C.float(scale)))
+		err = int(C.llama_set_adapter_lora(context.c, loraAdapter, C.float(scale)))
 	}
 	if err != 0 {
 		return errors.New("error applying lora from file")
 	}
 
 	return nil
+}
+
+func (m *Model) Vocab() *C.struct_llama_vocab {
+	return C.llama_model_get_vocab(m.c)
 }
 
 type Batch struct {
@@ -454,7 +412,7 @@ func (m *Model) TokenToPiece(token int) string {
 	tokenLen := 12
 	buf := make([]byte, tokenLen)
 	tokenLen = int(C.llama_token_to_piece(
-		m.c,
+		m.Vocab(),
 		C.int32_t(token),
 		(*C.char)(unsafe.Pointer(&buf[0])),
 		C.int32_t(tokenLen),
@@ -466,7 +424,7 @@ func (m *Model) TokenToPiece(token int) string {
 
 		buf = make([]byte, tokenLen)
 		C.llama_token_to_piece(
-			m.c,
+			m.Vocab(),
 			C.int32_t(token),
 			(*C.char)(unsafe.Pointer(&buf[0])),
 			C.int32_t(tokenLen),
@@ -484,7 +442,7 @@ func (m *Model) Tokenize(text string, addSpecial bool, parseSpecial bool) ([]int
 	defer C.free(unsafe.Pointer(cText))
 
 	result := C.llama_tokenize(
-		m.c,
+		m.Vocab(),
 		cText,
 		C.int32_t(len(text)),
 		&cTokens[0],
@@ -498,7 +456,7 @@ func (m *Model) Tokenize(text string, addSpecial bool, parseSpecial bool) ([]int
 		maxTokens = int(-result)
 		cTokens = make([]C.llama_token, maxTokens)
 		result = C.llama_tokenize(
-			m.c,
+			m.Vocab(),
 			cText,
 			C.int32_t(len(text)),
 			&cTokens[0],
@@ -520,7 +478,7 @@ func (m *Model) Tokenize(text string, addSpecial bool, parseSpecial bool) ([]int
 }
 
 func (m *Model) NEmbd() int {
-	return int(C.llama_n_embd(m.c))
+	return int(C.llama_model_n_embd(m.c))
 }
 
 func Quantize(infile, outfile string, ftype uint32) error {
