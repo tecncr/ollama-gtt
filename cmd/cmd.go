@@ -18,6 +18,7 @@ import (
 	"os/signal"
 	"path/filepath"
 	"runtime"
+	"slices"
 	"sort"
 	"strconv"
 	"strings"
@@ -267,7 +268,7 @@ func RunHandler(cmd *cobra.Command, args []string) error {
 	opts := runOptions{
 		Model:    args[0],
 		WordWrap: os.Getenv("TERM") == "xterm-256color",
-		Options:  map[string]interface{}{},
+		Options:  map[string]any{},
 	}
 
 	format, err := cmd.Flags().GetString("format")
@@ -339,6 +340,11 @@ func RunHandler(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
+	opts.MultiModal = slices.Contains(info.Capabilities, model.CapabilityVision)
+
+	// TODO: remove the projector info and vision info checks below,
+	// these are left in for backwards compatibility with older servers
+	// that don't have the capabilities field in the model info
 	if len(info.ProjectorInfo) != 0 {
 		opts.MultiModal = true
 	}
@@ -669,6 +675,15 @@ func showInfo(resp *api.ShowResponse, verbose bool, w io.Writer) error {
 		return
 	})
 
+	if len(resp.Capabilities) > 0 {
+		tableRender("Capabilities", func() (rows [][]string) {
+			for _, capability := range resp.Capabilities {
+				rows = append(rows, []string{"", capability.String()})
+			}
+			return
+		})
+	}
+
 	if resp.ProjectorInfo != nil {
 		tableRender("Projector", func() (rows [][]string) {
 			arch := resp.ProjectorInfo["general.architecture"].(string)
@@ -793,13 +808,38 @@ func PullHandler(cmd *cobra.Command, args []string) error {
 
 	fn := func(resp api.ProgressResponse) error {
 		if resp.Digest != "" {
+			if resp.Completed == 0 {
+				// This is the initial status update for the
+				// layer, which the server sends before
+				// beginning the download, for clients to
+				// compute total size and prepare for
+				// downloads, if needed.
+				//
+				// Skipping this here to avoid showing a 0%
+				// progress bar, which *should* clue the user
+				// into the fact that many things are being
+				// downloaded and that the current active
+				// download is not that last. However, in rare
+				// cases it seems to be triggering to some, and
+				// it isn't worth explaining, so just ignore
+				// and regress to the old UI that keeps giving
+				// you the "But wait, there is more!" after
+				// each "100% done" bar, which is "better."
+				return nil
+			}
+
 			if spinner != nil {
 				spinner.Stop()
 			}
 
 			bar, ok := bars[resp.Digest]
 			if !ok {
-				bar = progress.NewBar(fmt.Sprintf("pulling %s...", resp.Digest[7:19]), resp.Total, resp.Completed)
+				name, isDigest := strings.CutPrefix(resp.Digest, "sha256:")
+				name = strings.TrimSpace(name)
+				if isDigest {
+					name = name[:min(12, len(name))]
+				}
+				bar = progress.NewBar(fmt.Sprintf("pulling %s:", name), resp.Total, resp.Completed)
 				bars[resp.Digest] = bar
 				p.Add(resp.Digest, bar)
 			}
@@ -819,11 +859,7 @@ func PullHandler(cmd *cobra.Command, args []string) error {
 	}
 
 	request := api.PullRequest{Name: args[0], Insecure: insecure}
-	if err := client.Pull(cmd.Context(), &request, fn); err != nil {
-		return err
-	}
-
-	return nil
+	return client.Pull(cmd.Context(), &request, fn)
 }
 
 type generateContextKey string
@@ -837,7 +873,7 @@ type runOptions struct {
 	Format      string
 	System      string
 	Images      []api.ImageData
-	Options     map[string]interface{}
+	Options     map[string]any
 	MultiModal  bool
 	KeepAlive   *api.Duration
 }
@@ -1366,12 +1402,12 @@ func NewCLI() *cobra.Command {
 				envVars["OLLAMA_NOPRUNE"],
 				envVars["OLLAMA_ORIGINS"],
 				envVars["OLLAMA_SCHED_SPREAD"],
-				envVars["OLLAMA_TMPDIR"],
 				envVars["OLLAMA_FLASH_ATTENTION"],
 				envVars["OLLAMA_KV_CACHE_TYPE"],
 				envVars["OLLAMA_LLM_LIBRARY"],
 				envVars["OLLAMA_GPU_OVERHEAD"],
 				envVars["OLLAMA_LOAD_TIMEOUT"],
+				envVars["OLLAMA_CONTEXT_LENGTH"],
 			})
 		default:
 			appendEnvDocs(cmd, envs)
