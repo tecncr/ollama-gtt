@@ -148,7 +148,6 @@ func newScenarioRequest(t *testing.T, ctx context.Context, modelName string, est
 		successCh:       make(chan *runnerRef, 1),
 		errCh:           make(chan error, 1),
 	}
-	b.req.opts.NumCtx = 4096
 	b.srv = &mockLlm{estimatedVRAM: estimatedVRAM, estimatedVRAMByGPU: map[string]uint64{"": estimatedVRAM}}
 	return b
 }
@@ -793,3 +792,4 @@ func (s *mockLlm) Close() error {
 func (s *mockLlm) EstimatedVRAM() uint64                  { return s.estimatedVRAM }
 func (s *mockLlm) EstimatedTotal() uint64                 { return s.estimatedTotal }
 func (s *mockLlm) EstimatedVRAMByGPU(gpuid string) uint64 { return s.estimatedVRAMByGPU[gpuid] }
+func (s *mockLlm) Pid() int                               { return -1 }
